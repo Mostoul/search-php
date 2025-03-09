@@ -1,0 +1,104 @@
+jQuery(document).ready(function($) {
+    $('.wa-search-container').each(function() {
+        var container           = $(this);
+        var input               = container.find('.wa-search-input');
+        var resultsContainer    = container.find('.wa-search-results');
+        var paginationContainer = container.find('.wa-pagination');
+        var spinner             = container.find('.wa-loading');
+        
+        // ذخیره وضعیت فعلی
+        container.data('currentQuery', '');
+        container.data('currentPage', 1);
+        
+        // وقتی روی آیکون جستجو کلیک می‌شود، کلاس active به باکس جستجو اضافه/حذف شود.
+        container.find('.wa-search-icon').click(function(e) {
+            e.stopPropagation();
+            var searchBox = container.find('.wa-search-box');
+            searchBox.toggleClass('active');
+            if (searchBox.hasClass('active')) {
+                input.focus();
+            }
+        });
+        
+        // تابع اجرای جستجو همراه با افکت fadeOut / fadeIn برای نتایج و صفحه‌بندی
+        function performSearch(page) {
+            var query = input.val().trim();
+            if (query.length === 0) {
+                resultsContainer.empty();
+                paginationContainer.hide();
+                return;
+            }
+            
+            spinner.show();
+            $.ajax({
+                url: wa_ajax_obj.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'wa_ajax_search',
+                    query: query,
+                    page: page
+                },
+                success: function(response) {
+                    spinner.hide();
+                    if (response.success) {
+                        // انتقال نتایج با افکت fadeOut/ fadeIn
+                        resultsContainer.fadeOut(200, function() {
+                            $(this).html(response.data.html).fadeIn(300);
+                        });
+                        container.data('currentPage', page);
+                        var totalPages  = response.data.total_pages;
+                        var currentPage = response.data.current_page;
+                        var paginationHtml = '';
+                        
+                        if (totalPages > 1) {
+                            if (currentPage > 1) {
+                                paginationHtml += '<button type="button" data-page="'+ (currentPage - 1) +'">صفحه قبل</button>';
+                            }
+                            if (currentPage < totalPages) {
+                                paginationHtml += '<button type="button" data-page="'+ (currentPage + 1) +'">صفحه بعد</button>';
+                            }
+                            paginationContainer.fadeOut(200, function() {
+                                $(this).html(paginationHtml).fadeIn(300);
+                            });
+                        } else {
+                            paginationContainer.hide();
+                        }
+                    } else {
+                        resultsContainer.html('<p>' + wa_ajax_obj.no_result + '</p>');
+                        paginationContainer.hide();
+                    }
+                },
+                error: function() {
+                    spinner.hide();
+                    resultsContainer.html('<p>مشکلی در برقراری ارتباط پیش آمده.</p>');
+                    paginationContainer.hide();
+                }
+            });
+        }
+        
+        // دبیونس برای جلوگیری از تماس‌های مکرر هنگام تایپ
+        var typingTimer;
+        var typingInterval = 300;
+        
+        input.on('keyup', function() {
+            clearTimeout(typingTimer);
+            container.data('currentPage', 1);
+            typingTimer = setTimeout(function() {
+                performSearch(1);
+            }, typingInterval);
+        });
+        
+        // رویداد کلیک روی دکمه‌های صفحه‌بندی
+        container.on('click', '.wa-pagination button', function() {
+            var selectedPage = $(this).data('page');
+            performSearch(selectedPage);
+        });
+    });
+    
+    // بستن باکس جستجو در صورت کلیک خارج از آن
+    $(document).on('click', function(e) {
+        if ($(e.target).closest('.wa-search-container').length === 0) {
+            $('.wa-search-box').removeClass('active');
+        }
+    });
+});

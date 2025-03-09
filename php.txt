@@ -1,0 +1,138 @@
+<?php
+/**
+ * Plugin Name: ووکامرس سرچ آیجکس
+ * Plugin URI: https://example.com
+ * Description: افزونه جستجوی آیجکس حرفه‌ای برای نمایش محصولات ووکامرس با قابلیت صفحه‌بندی (۵ محصول در هر صفحه)، جستجوی فقط بر روی عنوان، انیمیشن‌های انتقال و ظاهر مینیمال.
+ * Version: 1.5
+ * Author: نام شما
+ * License: GPL2
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit; // جلوگیری از دسترسی مستقیم
+}
+
+// افزودن استایل و اسکریپت افزونه
+function wa_enqueue_scripts() {
+    wp_enqueue_style( 'wa-styles', plugin_dir_url( __FILE__ ) . 'css/wa-styles.css' );
+    wp_enqueue_script( 'wa-script', plugin_dir_url( __FILE__ ) . 'js/wa-script.js', array('jquery'), '1.5', true );
+    wp_localize_script( 'wa-script', 'wa_ajax_obj', array(
+        'ajax_url'  => admin_url( 'admin-ajax.php' ),
+        'no_result' => 'محصولی یافت نشد.'
+    ) );
+}
+add_action( 'wp_enqueue_scripts', 'wa_enqueue_scripts' );
+
+// فیلتر جهت محدودسازی جستجو تنها در عنوان محصول
+function wa_title_search_filter( $search, $wp_query ) {
+    global $wpdb;
+    // تنها در صورتی اعمال شود که علامت wa_title_search تنظیم شده باشد
+    if ( ! $wp_query->get( 'wa_title_search' ) || empty( $search ) ) {
+        return $search;
+    }
+    
+    $search = '';
+    $terms = $wp_query->get( 'search_terms' );
+    if ( ! empty( $terms ) ) {
+        $search = " AND (";
+        foreach ( $terms as $term ) {
+            $term = esc_sql( $wpdb->esc_like( $term ) );
+            $search .= "{$wpdb->posts}.post_title LIKE '%{$term}%' AND ";
+        }
+        // حذف "AND" اضافی و بستن پرانتز
+        $search = rtrim( $search, " AND " ) . ")";
+    }
+    return $search;
+}
+
+// ثبت شرتکد جهت نمایش باکس جستجو با امکان تنظیم attributeها
+function wa_search_shortcode( $atts ) {
+    static $instance_counter = 0;
+    $instance_counter++;
+    $instance_id = 'wa-search-instance-' . $instance_counter;
+    
+    $atts = shortcode_atts( array(
+        'placeholder' => 'جستجوی محصولات...',
+        'icon'        => 'fa fa-search',
+        'width'       => '300px',
+    ), $atts, 'wa_ajax_search' );
+    
+    ob_start();
+    ?>
+    <div class="wa-search-container" id="<?php echo esc_attr( $instance_id ); ?>">
+        <div class="wa-search-icon">
+            <i class="<?php echo esc_attr( $atts['icon'] ); ?>"></i>
+        </div>
+        <!-- حذف display: none؛ کنترل نمایش از طریق CSS با کلاس active -->
+        <div class="wa-search-box" style="width: <?php echo esc_attr( $atts['width'] ); ?>;">
+            <input type="text" class="wa-search-input" placeholder="<?php echo esc_attr( $atts['placeholder'] ); ?>">
+            <div class="wa-loading" style="display:none;">
+                <div class="spinner"></div>
+            </div>
+            <div class="wa-search-results"></div>
+            <div class="wa-pagination" style="display:none;"></div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode( 'wa_ajax_search', 'wa_search_shortcode' );
+
+// پردازش درخواست‌های آیجکس جستجو
+function wa_ajax_search() {
+    // دریافت ورودی جستجو و شماره صفحه از درخواست
+    $search = isset( $_POST['query'] ) ? sanitize_text_field( $_POST['query'] ) : '';
+    $page   = isset( $_POST['page'] ) ? intval( $_POST['page'] ) : 1;
+    
+    if ( empty( $search ) ) {
+        wp_send_json_error( 'متن جستجو خالی است.' );
+    }
+    
+    $args = array(
+        'post_type'       => 'product',
+        'posts_per_page'  => 5,      // ۵ محصول در هر صفحه
+        's'               => $search,
+        'paged'           => $page,
+        'wa_title_search' => true,   // علامت برای استفاده از فیلتر جستجو در عنوان
+    );
+    
+    add_filter( 'posts_search', 'wa_title_search_filter', 10, 2 );
+    $query = new WP_Query( $args );
+    remove_filter( 'posts_search', 'wa_title_search_filter', 10, 2 );
+    
+    if ( $query->have_posts() ) {
+        $result = '<ul class="wa-search-results-list">';
+        while ( $query->have_posts() ) {
+            $query->the_post();
+            global $product;
+            $permalink = get_the_permalink();
+            $title     = get_the_title();
+            $price     = $product->get_price_html();
+            $thumbnail = get_the_post_thumbnail( get_the_ID(), 'thumbnail', array('class' => 'wa-product-thumb') );
+            
+            $result   .= '<li class="wa-search-result-item">
+                            <a href="'. esc_url( $permalink ) .'">
+                                <div class="wa-result-thumb">'. $thumbnail .'</div>
+                                <div class="wa-result-info">
+                                    <span class="wa-title">'. esc_html( $title ) .'</span>
+                                    <span class="wa-price">'. $price .'</span>
+                                </div>
+                            </a>
+                          </li>';
+        }
+        $result .= '</ul>';
+        wp_reset_postdata();
+        wp_send_json_success( array(
+            'html'         => $result,
+            'total_pages'  => $query->max_num_pages,
+            'current_page' => $page,
+        ) );
+    } else {
+        wp_send_json_error( 'محصولی یافت نشد.' );
+    }
+    
+    wp_die();
+}
+add_action( 'wp_ajax_wa_ajax_search', 'wa_ajax_search' );
+add_action( 'wp_ajax_nopriv_wa_ajax_search', 'wa_ajax_search' );
+?>

@@ -1,0 +1,160 @@
+/* استایل‌های افزونه ووکامرس سرچ آیجکس */
+
+/* تنظیمات کلی باکس جستجو */
+.wa-search-container {
+    position: relative;
+    display: inline-block;
+}
+
+/* آیکون جستجو */
+.wa-search-icon {
+    cursor: pointer;
+}
+
+.wa-search-icon i {
+    color: #fff;
+    font-size: 24px;
+    background: #333;
+    padding: 10px;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+}
+
+.wa-search-icon i:hover {
+    transform: scale(1.1);
+}
+
+/* باکس جستجو: کنترل نمایش از طریق کلاس active و CSS transitions */
+.wa-search-box {
+    position: absolute;
+    top: 110%;
+    left: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 8px;
+    z-index: 999;
+    border-radius: 4px;
+    /* مخفی در حالت اولیه */
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.wa-search-box.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: all;
+}
+
+/* فیلد جستجو */
+.wa-search-box .wa-search-input {
+    width: 100%;
+    padding: 6px;
+    margin-bottom: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* نتایج جستجو */
+.wa-search-results-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.wa-search-result-item {
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+    opacity: 0;
+    animation: fadeIn 0.3s forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.wa-search-result-item a {
+    text-decoration: none;
+    color: #333;
+    display: flex;
+    align-items: center;
+}
+
+.wa-result-thumb {
+    margin-right: 8px;
+}
+
+.wa-product-thumb {
+    width: 40px;
+    height: auto;
+}
+
+.wa-result-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.wa-title {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.wa-price {
+    color: #777;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+/* حالت لودینگ (اسپینر) */
+.wa-loading {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #333;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* صفحه‌بندی */
+.wa-pagination {
+    text-align: center;
+    margin-top: 8px;
+}
+
+.wa-pagination button {
+    background: none;
+    border: none;
+    color: #333;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 5px 8px;
+    margin: 0 5px;
+    transition: transform 0.2s ease;
+}
+
+.wa-pagination button:hover {
+    text-decoration: none;
+    /* تنها افکت scale را نگه می‌داریم */
+    transform: scale(1.05);
+}
+
+/* رسپانسیو */
+@media (max-width: 767px) {
+    .wa-search-box {
+        width: 90% !important;
+        left: 5% !important;
+    }
+}
